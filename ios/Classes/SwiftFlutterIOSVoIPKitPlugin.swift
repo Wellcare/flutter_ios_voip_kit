@@ -4,13 +4,14 @@ import UserNotifications
 
 public class SwiftFlutterIOSVoIPKitPlugin: NSObject {
     public static func register(with registrar: FlutterPluginRegistrar) {
-        let channel = FlutterMethodChannel(name: FlutterPluginChannelType.method.name,  binaryMessenger: registrar.messenger())
-        let plugin = SwiftFlutterIOSVoIPKitPlugin(messenger: registrar.messenger())
-        registrar.addMethodCallDelegate(plugin, channel: channel)
+        let methodChannel = FlutterMethodChannel(name: FlutterPluginChannelType.method.name,  binaryMessenger: registrar.messenger())
+        let plugin = SwiftFlutterIOSVoIPKitPlugin(messenger: registrar.messenger(), methodChannel: methodChannel)
+        registrar.addMethodCallDelegate(plugin, channel: methodChannel)
     }
 
-    init(messenger: FlutterBinaryMessenger) {
-        self.voIPCenter = VoIPCenter(eventChannel: FlutterEventChannel(name: FlutterPluginChannelType.event.name, binaryMessenger: messenger))
+    init(messenger: FlutterBinaryMessenger, methodChannel: FlutterMethodChannel) {
+        let eventChannel = FlutterEventChannel(name: FlutterPluginChannelType.event.name, binaryMessenger: messenger)
+        self.voIPCenter = VoIPCenter(eventChannel: eventChannel, methodChannel: methodChannel)
         super.init()
         self.notificationCenter.delegate = self
     }
@@ -46,7 +47,10 @@ public class SwiftFlutterIOSVoIPKitPlugin: NSObject {
     }
 
     private func endCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        self.voIPCenter.callKitCenter.endCall()
+        guard let args = call.arguments as? [String: Any], let isEndCallManually = args["isEndCallManually"] as? Bool else {
+            return
+        }
+        self.voIPCenter.callKitCenter.endCall(isEndCallManually: isEndCallManually)
         result(nil)
     }
 
@@ -121,9 +125,10 @@ public class SwiftFlutterIOSVoIPKitPlugin: NSObject {
                 return
         }
 
+        let info = ["infoTest": "text"]
         self.voIPCenter.callKitCenter.incomingCall(uuidString: uuid,
                                                    callerId: callerId,
-                                                   callerName: callerName) { (error) in
+                                                   callerName: callerName, info: info) { (error) in
             if let error = error {
                 print("❌ testIncomingCall error: \(error.localizedDescription)")
                 result(FlutterError(code: "testIncomingCall",

@@ -11,13 +11,15 @@ import 'notifications_settings.dart';
 final MethodChannel _channel = MethodChannel(ChannelType.method.name);
 
 typedef IncomingPush = void Function(Map<String, dynamic> payload);
-typedef IncomingAction = void Function(String uuid, String callerId);
+typedef IncomingAction = Future<void> Function(String uuid, String callerId);
+typedef RejectAction = Future<void> Function(String uuid, String callerId, bool isEndCallManually, Map<String, dynamic> payload);
 typedef OnUpdatePushToken = void Function(String token);
 typedef OnAudioSessionStateChanged = void Function(bool active);
 
 class FlutterIOSVoIPKit {
   static FlutterIOSVoIPKit get instance => _getInstance();
   static FlutterIOSVoIPKit _instance;
+
   static FlutterIOSVoIPKit _getInstance() {
     if (_instance == null) {
       _instance = FlutterIOSVoIPKit._internal();
@@ -35,6 +37,17 @@ class FlutterIOSVoIPKit {
     _eventSubscription = EventChannel(ChannelType.event.name)
         .receiveBroadcastStream()
         .listen(_eventListener, onError: _errorListener);
+
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == "onDidRejectIncomingCall") {
+        await onDidRejectIncomingCall(
+          call.arguments['uuid'],
+          call.arguments['incoming_caller_id'],
+          call.arguments['isEndCallManually'],
+          Map<String, dynamic>.from(call.arguments['info'] as Map),
+        );
+      }
+    });
   }
 
   /// [onDidReceiveIncomingPush] is not called when the app is not running, because app is not yet running when didReceiveIncomingPushWith is called.
@@ -44,7 +57,7 @@ class FlutterIOSVoIPKit {
   /// This is because the app is already running when the incoming call screen is displayed for CallKit.
   /// If not called, make sure the app is calling [onDidAcceptIncomingCall] and [onDidRejectIncomingCall] in the Dart class(ex: main.dart) that is called immediately after the app is launched.
   IncomingAction onDidAcceptIncomingCall;
-  IncomingAction onDidRejectIncomingCall;
+  RejectAction onDidRejectIncomingCall;
   OnUpdatePushToken onDidUpdatePushToken;
 
   OnAudioSessionStateChanged onAudioSessionStateChanged;
@@ -95,14 +108,17 @@ class FlutterIOSVoIPKit {
     });
   }
 
-  Future<void> endCall() async {
+  Future<void> endCall({bool isEndCallManually = false}) async {
     print('🎈 endCall');
 
     if (Platform.isAndroid) {
       return null;
     }
 
-    return await _channel.invokeMethod('endCall');
+    return await _channel.invokeMethod(
+      'endCall',
+      {'isEndCallManually': isEndCallManually},
+    );
   }
 
   Future<void> acceptIncomingCall({
@@ -230,6 +246,8 @@ class FlutterIOSVoIPKit {
         onDidRejectIncomingCall(
           map['uuid'],
           map['incoming_caller_id'],
+          map['isEndCallManually'],
+          Map<String, dynamic>.from(map['info'] as Map),
         );
         break;
 

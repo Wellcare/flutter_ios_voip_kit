@@ -13,6 +13,7 @@ class CallKitCenter: NSObject {
 
     private let controller = CXCallController()
     private let iconName: String
+    private let ringtone: String?
     private let localizedName: String
     private let supportVideo: Bool
     private let skipRecallScreen: Bool
@@ -21,10 +22,12 @@ class CallKitCenter: NSObject {
     private(set) var uuidString: String?
     private(set) var incomingCallerId: String?
     private(set) var incomingCallerName: String?
+    private(set) var info: [String: Any]?
     private var isReceivedIncomingCall: Bool = false
     private var isCallConnected: Bool = false
     private var maximumCallGroups: Int = 1
     var answerCallAction: CXAnswerCallAction?
+    var isEndCallManually: Bool = false
 
     var isCalleeBeforeAcceptIncomingCall: Bool {
         return self.isReceivedIncomingCall && !self.isCallConnected
@@ -38,8 +41,10 @@ class CallKitCenter: NSObject {
             self.supportVideo = plist?["FIVKSupportVideo"] as? Bool ?? false
             self.skipRecallScreen = plist?["FIVKSkipRecallScreen"] as? Bool ?? false
             self.maximumCallGroups = plist?["FIVKMaximumCallGroups"] as? Int ?? 1
+            self.ringtone = plist?["FIVKRingtone"] as? String
         } else {
             self.iconName = "AppIcon-VoIPKit"
+            self.ringtone = "ringtone.wav"
             self.localizedName = "App Name"
             self.supportVideo = false
             self.skipRecallScreen = false
@@ -54,6 +59,7 @@ class CallKitCenter: NSObject {
         providerConfiguration.maximumCallGroups = maximumCallGroups
         providerConfiguration.supportedHandleTypes = [.generic]
         providerConfiguration.iconTemplateImageData = UIImage(named: self.iconName)?.pngData()
+        providerConfiguration.ringtoneSound = ringtone
         self.provider = CXProvider(configuration: providerConfiguration)
         self.provider?.setDelegate(delegate, queue: nil)
     }
@@ -71,12 +77,13 @@ class CallKitCenter: NSObject {
         }
     }
 
-    func incomingCall(uuidString: String, callerId: String, callerName: String, completion: @escaping (Error?) -> Void) {
+    func incomingCall(uuidString: String, callerId: String, callerName: String, info: [String: Any]?, completion: @escaping (Error?) -> Void) {
         self.uuidString = uuidString
         self.incomingCallerId = callerId
         self.incomingCallerName = callerName
         self.isReceivedIncomingCall = true
-
+        self.info = info
+        
         self.uuid = UUID(uuidString: uuidString)!
         let update = CXCallUpdate()
         update.remoteHandle = CXHandle(type: .generic, value: callerName)
@@ -108,7 +115,8 @@ class CallKitCenter: NSObject {
         self.disconnected(reason: .unanswered)
     }
 
-    func endCall() {
+    func endCall(isEndCallManually: Bool) {
+        self.isEndCallManually = isEndCallManually
         let endCallAction = CXEndCallAction(call: self.uuid)
         let transaction = CXTransaction(action: endCallAction)
         self.controller.request(transaction) { error in
@@ -131,6 +139,7 @@ class CallKitCenter: NSObject {
     }
 
     func disconnected(reason: CXCallEndedReason) {
+        self.isEndCallManually = false
         self.uuidString = nil
         self.incomingCallerId = nil
         self.incomingCallerName = nil
