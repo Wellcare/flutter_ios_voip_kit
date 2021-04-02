@@ -11,8 +11,7 @@ final MethodChannel _channel = MethodChannel(ChannelType.method.name);
 
 typedef IncomingPush = void Function(Map<dynamic, dynamic> payload);
 typedef IncomingAction = Future<void> Function(Map<dynamic, dynamic> payload);
-typedef RejectAction = Future<void> Function(
-    Map<dynamic, dynamic> payload, bool isEndCallManually);
+typedef RejectAction = Future<void> Function(Map<dynamic, dynamic> payload);
 typedef OnUpdatePushToken = void Function(String token);
 typedef OnAudioSessionStateChanged = void Function(bool active);
 
@@ -41,10 +40,7 @@ class FlutterIOSVoIPKit {
     _channel.setMethodCallHandler((call) async {
       if (call.method == "onDidRejectIncomingCall") {
         if (onDidRejectIncomingCall != null)
-          await onDidRejectIncomingCall!(
-            call.arguments,
-            call.arguments['isEndCallManually'],
-          );
+          await onDidRejectIncomingCall!(call.arguments);
       }
     });
   }
@@ -238,7 +234,7 @@ class FlutterIOSVoIPKit {
           return;
         }
 
-        onDidRejectIncomingCall!(map, map['isEndCallManually']);
+        onDidRejectIncomingCall!(map);
         break;
 
       case 'onDidUpdatePushToken':
