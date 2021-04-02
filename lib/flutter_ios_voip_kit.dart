@@ -9,10 +9,10 @@ import 'notifications_settings.dart';
 
 final MethodChannel _channel = MethodChannel(ChannelType.method.name);
 
-typedef IncomingPush = void Function(Map<String, dynamic> payload);
-typedef IncomingAction = Future<void> Function(String uuid, String callerId);
-typedef RejectAction = Future<void> Function(String uuid, String callerId,
-    bool isEndCallManually, Map<String, dynamic> payload);
+typedef IncomingPush = void Function(Map<dynamic, dynamic> payload);
+typedef IncomingAction = Future<void> Function(Map<dynamic, dynamic> payload);
+typedef RejectAction = Future<void> Function(
+    Map<dynamic, dynamic> payload, bool isEndCallManually);
 typedef OnUpdatePushToken = void Function(String token);
 typedef OnAudioSessionStateChanged = void Function(bool active);
 
@@ -42,10 +42,8 @@ class FlutterIOSVoIPKit {
       if (call.method == "onDidRejectIncomingCall") {
         if (onDidRejectIncomingCall != null)
           await onDidRejectIncomingCall!(
-            call.arguments['uuid'],
-            call.arguments['incoming_caller_id'],
+            call.arguments,
             call.arguments['isEndCallManually'],
-            Map<String, dynamic>.from(call.arguments['info'] as Map),
           );
       }
     });
@@ -222,9 +220,7 @@ class FlutterIOSVoIPKit {
           return;
         }
 
-        onDidReceiveIncomingPush!(
-          Map<String, dynamic>.from(map['payload'] as Map),
-        );
+        onDidReceiveIncomingPush!(map);
         break;
       case 'onDidAcceptIncomingCall':
         print('🎈 onDidAcceptIncomingCall($onDidAcceptIncomingCall): $map');
@@ -233,10 +229,7 @@ class FlutterIOSVoIPKit {
           return;
         }
 
-        onDidAcceptIncomingCall!(
-          map['uuid'],
-          map['incoming_caller_id'],
-        );
+        onDidAcceptIncomingCall!(map);
         break;
       case 'onDidRejectIncomingCall':
         print('🎈 onDidRejectIncomingCall($onDidRejectIncomingCall): $map');
@@ -245,12 +238,7 @@ class FlutterIOSVoIPKit {
           return;
         }
 
-        onDidRejectIncomingCall!(
-          map['uuid'],
-          map['incoming_caller_id'],
-          map['isEndCallManually'],
-          Map<String, dynamic>.from(map['info'] as Map),
-        );
+        onDidRejectIncomingCall!(map, map['isEndCallManually']);
         break;
 
       case 'onDidUpdatePushToken':
