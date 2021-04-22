@@ -73,7 +73,7 @@ class FlutterIOSVoIPKit {
       throw Exception('Not implemented');
     }
 
-    return await _channel.invokeMethod('getVoIPToken');
+    return await _channel.invokeMethod<dynamic>('getVoIPToken');
   }
 
   /// Get incoming caller name
@@ -84,7 +84,7 @@ class FlutterIOSVoIPKit {
       throw Exception('Not implemented');
     }
 
-    return await _channel.invokeMethod('getIncomingCallerName');
+    return await _channel.invokeMethod<dynamic>('getIncomingCallerName');
   }
 
   /// Start call
@@ -168,7 +168,8 @@ class FlutterIOSVoIPKit {
       throw Exception('Not implemented');
     }
 
-    final result = await _channel.invokeMethod('requestAuthLocalNotification');
+    final dynamic result =
+        await _channel.invokeMethod<dynamic>('requestAuthLocalNotification');
     return result['granted'];
   }
 
@@ -179,7 +180,8 @@ class FlutterIOSVoIPKit {
       throw Exception('Not implemented');
     }
 
-    final result = await _channel.invokeMethod('getLocalNotificationsSettings');
+    final dynamic result =
+        await _channel.invokeMethod<dynamic>('getLocalNotificationsSettings');
     return NotificationSettings.createFromMap(result);
   }
 
