@@ -21,7 +21,6 @@ class VoIPCenter: NSObject {
 
     // MARK: - event channel
 
-    private let methodChannel: FlutterMethodChannel
     private let eventChannel: FlutterEventChannel
     private var eventSink: FlutterEventSink?
 
@@ -64,8 +63,7 @@ class VoIPCenter: NSObject {
     fileprivate let ioBufferDuration: TimeInterval
     fileprivate let audioSampleRate: Double
 
-    init(eventChannel: FlutterEventChannel, methodChannel: FlutterMethodChannel) {
-        self.methodChannel = methodChannel
+    init(eventChannel: FlutterEventChannel) {
         self.eventChannel = eventChannel
         self.pushRegistry = PKPushRegistry(queue: .main)
         self.pushRegistry.desiredPushTypes = [.voIP]
@@ -107,25 +105,18 @@ extension VoIPCenter: PKPushRegistryDelegate {
 
         let info = self.parse(payload: payload)
         let callerName = info?["incoming_caller_name"] as! String
-        let callMissed = info?["call_missed"] as! Bool
-        if(callMissed) {
-            self.callKitCenter.disconnected(reason: .remoteEnded)
-        }else {
-            self.callKitCenter.incomingCall(uuidString: info?["uuid"] as! String,
-                                            callerId: info?["incoming_caller_id"] as! String,
-                                            callerName: callerName,
-                                            info: info) { error in
-                if let error = error {
-                    print("❌ reportNewIncomingCall error: \(error.localizedDescription)")
-                    return
-                }
-                self.eventSink?(["event": EventChannel.onDidReceiveIncomingPush.rawValue,
-                                 "payload": info as Any,
-                                 "incoming_caller_name": callerName])
-                completion()
+        self.callKitCenter.incomingCall(uuidString: info?["uuid"] as! String,
+                                        callerId: info?["incoming_caller_id"] as! String,
+                                        callerName: callerName) { error in
+            if let error = error {
+                print("❌ reportNewIncomingCall error: \(error.localizedDescription)")
+                return
             }
+            self.eventSink?(["event": EventChannel.onDidReceiveIncomingPush.rawValue,
+                             "payload": info as Any,
+                             "incoming_caller_name": callerName])
+            completion()
         }
-
     }
 
     // NOTE: iOS10 support
@@ -135,25 +126,17 @@ extension VoIPCenter: PKPushRegistryDelegate {
 
         let info = self.parse(payload: payload)
         let callerName = info?["incoming_caller_name"] as! String
-        let callMissed = info?["call_missed"] as! Bool
-        
-        if(callMissed){
-            self.callKitCenter.disconnected(reason: .remoteEnded)
-        }else {
-            self.callKitCenter.incomingCall(uuidString: info?["uuid"] as! String,
-                                            callerId: info?["incoming_caller_id"] as! String,
-                                            callerName: callerName, info: info) { error in
-                if let error = error {
-                    print("❌ reportNewIncomingCall error: \(error.localizedDescription)")
-                    return
-                }
-                self.eventSink?(["event": EventChannel.onDidReceiveIncomingPush.rawValue,
-                                 "payload": info as Any,
-                                 "incoming_caller_name": callerName])
+        self.callKitCenter.incomingCall(uuidString: info?["uuid"] as! String,
+                                        callerId: info?["incoming_caller_id"] as! String,
+                                        callerName: callerName) { error in
+            if let error = error {
+                print("❌ reportNewIncomingCall error: \(error.localizedDescription)")
+                return
             }
+            self.eventSink?(["event": EventChannel.onDidReceiveIncomingPush.rawValue,
+                             "payload": info as Any,
+                             "incoming_caller_name": callerName])
         }
-        
-  
     }
 
     private func parse(payload: PKPushPayload) -> [String: Any]? {
@@ -195,16 +178,13 @@ extension VoIPCenter: CXProviderDelegate {
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         print("❎ VoIP CXEndCallAction")
         if (self.callKitCenter.isCalleeBeforeAcceptIncomingCall) {
-            let arguments = ["uuid": self.callKitCenter.uuidString as Any,
-                             "incoming_caller_id": self.callKitCenter.incomingCallerId as Any,
-                             "isEndCallManually": self.callKitCenter.isEndCallManually as Any,
-                             "info": self.callKitCenter.info as Any
-            ]
-            self.methodChannel.invokeMethod(EventChannel.onDidRejectIncomingCall.rawValue, arguments: arguments) { (result) in
-                self.callKitCenter.disconnected(reason: .remoteEnded)
-                action.fulfill()
-            }
+            self.eventSink?(["event": EventChannel.onDidRejectIncomingCall.rawValue,
+                             "uuid": self.callKitCenter.uuidString as Any,
+                             "incoming_caller_id": self.callKitCenter.incomingCallerId as Any])
         }
+
+        self.callKitCenter.disconnected(reason: .remoteEnded)
+        action.fulfill()
     }
     
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
