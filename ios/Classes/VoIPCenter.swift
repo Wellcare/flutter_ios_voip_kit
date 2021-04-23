@@ -104,9 +104,10 @@ extension VoIPCenter: PKPushRegistryDelegate {
         print("🎈 VoIP didReceiveIncomingPushWith completion: \(payload.dictionaryPayload)")
 
         let info = self.parse(payload: payload)
-        let callerName = info?["incoming_caller_name"] as! String
+        
+        let callerName = info?["callTitle"] as! String
         self.callKitCenter.incomingCall(uuidString: info?["uuid"] as! String,
-                                        callerId: info?["incoming_caller_id"] as! String,
+                                        callerId: info?["conversation"] as! String,
                                         callerName: callerName) { error in
             if let error = error {
                 print("❌ reportNewIncomingCall error: \(error.localizedDescription)")
@@ -115,6 +116,10 @@ extension VoIPCenter: PKPushRegistryDelegate {
             self.eventSink?(["event": EventChannel.onDidReceiveIncomingPush.rawValue,
                              "payload": info as Any,
                              "incoming_caller_name": callerName])
+
+              DispatchQueue.main.async {
+                completion()
+            }
             completion()
         }
     }
@@ -142,9 +147,10 @@ extension VoIPCenter: PKPushRegistryDelegate {
     private func parse(payload: PKPushPayload) -> [String: Any]? {
         do {
             let data = try JSONSerialization.data(withJSONObject: payload.dictionaryPayload, options: .prettyPrinted)
-            let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-            let aps = json?["aps"] as? [String: Any]
-            return aps?["alert"] as? [String: Any]
+            let json1 = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+            let json2 = json1?["custom"] as? [String: Any]
+            let json3 = json2?["a"] as? [String: Any]
+            return json3?["data"] as? [String: Any]
         } catch let error as NSError {
             print("❌ VoIP parsePayload: \(error.localizedDescription)")
             return nil
