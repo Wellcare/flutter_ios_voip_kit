@@ -69,6 +69,10 @@ public class SwiftFlutterIOSVoIPKitPlugin: NSObject {
 
         self.voIPCenter.callKitCenter.unansweredIncomingCall()
 
+        // tuanna: add
+        self.voIPCenter.callKitCenter.endCall()
+        // tuanna: end
+
         if (skipLocalNotification) {
             result(nil)
             return
@@ -97,21 +101,10 @@ public class SwiftFlutterIOSVoIPKitPlugin: NSObject {
     }
 
     public func requestAuthLocalNotification(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        notificationCenter.requestAuthorization(options: options) { granted, error in
-            if let error = error {
-                result(["granted": granted, "error": error.localizedDescription])
-            } else {
-                result(["granted": granted])
-            }
-        }
+        self.notificationCenter.requestAuthorization(options: self.options) { (_, _) in }
+        result(nil)
     }
-    
-    public func getLocalNotificationsSettings(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        notificationCenter.getNotificationSettings { settings in
-            result(settings.toMap())
-        }
-    }
-    
+
     private func testIncomingCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let args = call.arguments as? [String: Any],
             let uuid = args["uuid"] as? String,
@@ -121,7 +114,7 @@ public class SwiftFlutterIOSVoIPKitPlugin: NSObject {
                 return
         }
 
-        self.voIPCenter.callKitCenter.incomingCall(uuidString: uuid,
+        self.voIPCenter.callKitCenter.incomingCall(payload: args, uuidString: uuid,
                                                    callerId: callerId,
                                                    callerName: callerName) { (error) in
             if let error = error {
@@ -131,6 +124,31 @@ public class SwiftFlutterIOSVoIPKitPlugin: NSObject {
                                     details: nil))
                 return
             }
+            result(nil)
+        }
+    }
+
+    private func displayIncomingCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let args = call.arguments as? [String: Any],
+            let uuid = args["uuid"] as? String,
+            let callerId = args["callerId"] as? String,
+            let callerName = args["callerName"] as? String else {
+                result(FlutterError(code: "InvalidArguments displayIncomingCall", message: nil, details: nil))
+                return
+        }
+
+        self.voIPCenter.callKitCenter.incomingCall(payload:args, uuidString: uuid,
+                                                   callerId: callerId,
+                                                   callerName: callerName) { (error) in
+            if let error = error {
+                print("❌ displayIncomingCall error: \(error.localizedDescription)")
+                result(FlutterError(code: "displayIncomingCall",
+                                    message: error.localizedDescription,
+                                    details: nil))
+                return
+            }
+
+
             result(nil)
         }
     }
@@ -157,8 +175,8 @@ extension SwiftFlutterIOSVoIPKitPlugin: FlutterPlugin {
         case unansweredIncomingCall
         case callConnected
         case requestAuthLocalNotification
-        case getLocalNotificationsSettings
         case testIncomingCall
+        case displayIncomingCall
     }
 
     // MARK: - FlutterPlugin（method channel）
@@ -185,10 +203,11 @@ extension SwiftFlutterIOSVoIPKitPlugin: FlutterPlugin {
                 self.callConnected(call, result: result)
             case .requestAuthLocalNotification:
                 self.requestAuthLocalNotification(call, result: result)
-            case .getLocalNotificationsSettings:
-                self.getLocalNotificationsSettings(call, result: result)
             case .testIncomingCall:
                 self.testIncomingCall(call, result: result)
+            case .displayIncomingCall:
+                self.displayIncomingCall(call, result: result)
+                
         }
     }
 }

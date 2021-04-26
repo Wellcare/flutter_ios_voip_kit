@@ -13,6 +13,7 @@ class CallKitCenter: NSObject {
 
     private let controller = CXCallController()
     private let iconName: String
+    private(set) var payload: Any?
     private let localizedName: String
     private let supportVideo: Bool
     private let skipRecallScreen: Bool
@@ -23,7 +24,6 @@ class CallKitCenter: NSObject {
     private(set) var incomingCallerName: String?
     private var isReceivedIncomingCall: Bool = false
     private var isCallConnected: Bool = false
-    private var maximumCallGroups: Int = 1
     var answerCallAction: CXAnswerCallAction?
 
     var isCalleeBeforeAcceptIncomingCall: Bool {
@@ -37,7 +37,6 @@ class CallKitCenter: NSObject {
             self.localizedName = plist?["FIVKLocalizedName"] as? String ?? "App Name"
             self.supportVideo = plist?["FIVKSupportVideo"] as? Bool ?? false
             self.skipRecallScreen = plist?["FIVKSkipRecallScreen"] as? Bool ?? false
-            self.maximumCallGroups = plist?["FIVKMaximumCallGroups"] as? Int ?? 1
         } else {
             self.iconName = "AppIcon-VoIPKit"
             self.localizedName = "App Name"
@@ -51,7 +50,7 @@ class CallKitCenter: NSObject {
         let providerConfiguration = CXProviderConfiguration(localizedName: self.localizedName)
         providerConfiguration.supportsVideo = self.supportVideo
         providerConfiguration.maximumCallsPerCallGroup = 1
-        providerConfiguration.maximumCallGroups = maximumCallGroups
+        providerConfiguration.maximumCallGroups = 2
         providerConfiguration.supportedHandleTypes = [.generic]
         providerConfiguration.iconTemplateImageData = UIImage(named: self.iconName)?.pngData()
         self.provider = CXProvider(configuration: providerConfiguration)
@@ -71,7 +70,8 @@ class CallKitCenter: NSObject {
         }
     }
 
-    func incomingCall(uuidString: String, callerId: String, callerName: String, completion: @escaping (Error?) -> Void) {
+    func incomingCall(payload: Any, uuidString: String, callerId: String, callerName: String, completion: @escaping (Error?) -> Void) {
+        self.payload = payload
         self.uuidString = uuidString
         self.incomingCallerId = callerId
         self.incomingCallerName = callerName
@@ -109,11 +109,14 @@ class CallKitCenter: NSObject {
     }
 
     func endCall() {
+
         let endCallAction = CXEndCallAction(call: self.uuid)
         let transaction = CXTransaction(action: endCallAction)
         self.controller.request(transaction) { error in
             if let error = error {
                 print("❌ CXEndCallAction error: \(error.localizedDescription)")
+            } else {
+                print("End Call Success")
             }
         }
     }
@@ -131,6 +134,7 @@ class CallKitCenter: NSObject {
     }
 
     func disconnected(reason: CXCallEndedReason) {
+        self.payload = nil
         self.uuidString = nil
         self.incomingCallerId = nil
         self.incomingCallerName = nil
