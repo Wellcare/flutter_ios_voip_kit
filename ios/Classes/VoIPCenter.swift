@@ -155,6 +155,7 @@ extension VoIPCenter: CXProviderDelegate {
         self.eventSink?(["event": EventChannel.onDidAcceptIncomingCall.rawValue,
                          "payload":self.callKitCenter.payload as Any,
                          "uuid": self.callKitCenter.uuidString as Any])
+        action.fulfill()
     }
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
